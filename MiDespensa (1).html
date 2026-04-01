@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MiDespensa</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+:root {
+  --bg:#F7F3EE; --surface:#fff; --accent:#2D6A4F; --accent2:#52B788;
+  --danger:#C9534F; --warn:#E8A838; --text:#1A1A1A; --muted:#7A7570;
+  --border:#E0D9D0; --radius:14px; --shadow:0 4px 24px rgba(0,0,0,0.07);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* ── SCREENS ── */
+#screen-login{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+#screen-app{display:none;flex-direction:column;min-height:100vh}
+
+/* ── LOGIN ── */
+.login-card{background:var(--surface);border-radius:20px;padding:36px 30px;max-width:420px;width:100%;box-shadow:0 10px 48px rgba(0,0,0,0.10);border:1px solid var(--border)}
+.login-logo{font-family:'Playfair Display',serif;font-size:34px;color:var(--text);margin-bottom:6px}
+.login-logo span{color:var(--accent2)}
+.login-sub{font-size:14px;color:var(--muted);margin-bottom:26px;line-height:1.5}
+.divider{display:flex;align-items:center;gap:10px;margin:20px 0}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.divider span{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--muted);white-space:nowrap}
+.field{margin-bottom:14px}
+.label{display:block;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+input,select{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg);color:var(--text);outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--accent2)}
+.row{display:flex;gap:10px;align-items:flex-end}
+.btn{border:none;border-radius:10px;padding:10px 20px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all .18s;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#235c41}
+.btn-green{background:var(--accent2);color:#fff}
+.btn-green:hover{background:#3d9a6a}
+.btn-outline{background:var(--bg);color:var(--text);border:1.5px solid var(--border)}
+.btn-outline:hover{border-color:var(--accent2)}
+.btn:active{transform:scale(.97)}
+.note{font-size:11px;color:#bbb;margin-top:14px;text-align:center;line-height:1.5}
+.code-display{background:var(--bg);border:2px dashed var(--accent2);border-radius:12px;padding:14px;text-align:center;margin:14px 0}
+.code-display .code{font-family:monospace;font-size:22px;font-weight:700;letter-spacing:3px;color:var(--accent)}
+.code-display .hint{font-size:12px;color:var(--muted);margin-top:4px}
+
+/* ── HEADER ── */
+header{background:var(--accent);padding:14px 20px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(45,106,79,.3)}
+.header-inner{max-width:920px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.logo{font-family:'Playfair Display',serif;font-size:22px;color:#fff}
+.logo span{color:var(--accent2)}
+.hogar-info{font-size:11px;color:rgba(255,255,255,.65);margin-top:2px}
+.header-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.2);border-radius:30px;padding:5px 12px;font-size:12px;color:#fff;display:flex;align-items:center;gap:5px}
+.pill strong{font-size:14px}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:#52B788;display:inline-block;margin-right:3px}
+.sync-dot.syncing{background:var(--warn);animation:pulse .8s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.btn-exit{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif}
+
+/* ── MAIN ── */
+main{max-width:920px;margin:0 auto;padding:20px 14px 100px;flex:1}
+
+/* ── ADD CARD ── */
+.card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:18px 20px;margin-bottom:18px;box-shadow:var(--shadow)}
+.card-title{font-family:'Playfair Display',serif;font-size:17px;color:var(--accent);margin-bottom:14px}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+
+/* ── BANNER ── */
+.banner{background:linear-gradient(135deg,var(--accent),#1b4332);border-radius:var(--radius);padding:16px 20px;margin-bottom:18px;display:flex;gap:12px;flex-wrap:wrap}
+.b-item{text-align:center;flex:1;min-width:60px}
+.b-num{font-family:'Playfair Display',serif;font-size:26px;color:#fff;line-height:1}
+.b-lbl{font-size:10px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.7px;margin-top:2px}
+
+/* ── TABS ── */
+.tabs-wrap{overflow-x:auto;margin-bottom:14px;scrollbar-width:none}
+.tabs-wrap::-webkit-scrollbar{display:none}
+.tabs{display:flex;gap:8px;white-space:nowrap}
+.tab{border:1.5px solid var(--border);background:var(--surface);border-radius:30px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted);flex-shrink:0;font-family:'DM Sans',sans-serif;transition:all .18s}
+.tab:hover{border-color:var(--accent2);color:var(--accent)}
+.tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* ── LIST HEADER ── */
+.list-head{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 80px 40px;gap:8px;padding:0 14px 8px;font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--muted)}
+@media(max-width:640px){.list-head{display:none}}
+
+/* ── PRODUCT CARD ── */
+.p-card{background:var(--surface);border-radius:12px;border:1.5px solid var(--border);padding:12px 14px;display:grid;grid-template-columns:2fr 1fr 1fr 1fr 80px 40px;gap:8px;align-items:center;margin-bottom:8px;animation:slideIn .22s ease;transition:box-shadow .2s}
+.p-card:hover{box-shadow:var(--shadow)}
+.p-card.ok{border-left:4px solid var(--accent2)}
+.p-card.need{border-left:4px solid var(--warn)}
+.p-card.critical{border-left:4px solid var(--danger)}
+@keyframes slideIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:640px){
+  .p-card{grid-template-columns:1fr 1fr;gap:10px}
+  .cell-name{grid-column:1/-1}
+  .cell-actions{grid-column:1/-1;justify-self:end}
+}
+.cell-name{display:flex;align-items:center;gap:10px}
+.cat-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.pname{font-weight:600;font-size:15px}
+.punit-lbl{font-size:11px;color:var(--muted);margin-top:1px}
+.cell-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:3px;display:none}
+@media(max-width:640px){.cell-lbl{display:block}}
+.inline-input{border:1.5px solid var(--border);border-radius:8px;padding:5px 7px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;width:64px;text-align:center;background:var(--bg);outline:none;transition:border-color .2s}
+.inline-input:focus{border-color:var(--accent2)}
+.badge{display:inline-flex;align-items:center;justify-content:center;border-radius:8px;padding:4px 10px;font-size:14px;font-weight:700;min-width:52px}
+.badge.ok{background:#d8f3dc;color:#1b4332}
+.badge.warn{background:#fff3cd;color:#7d4e00}
+.badge.bad{background:#fde8e8;color:#8b0000}
+.btn-del{width:32px;height:32px;border:1.5px solid var(--border);background:var(--bg);border-radius:8px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.btn-del:hover{border-color:var(--danger);background:#fde8e8}
+
+/* ── EMPTY ── */
+.empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty .emoji{font-size:52px;margin-bottom:12px}
+
+/* ── BOTTOM BAR ── */
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;z-index:200;box-shadow:0 -4px 20px rgba(0,0,0,0.06)}
+.bottom-info{font-size:14px;color:var(--muted)}
+.bottom-info strong{color:var(--accent);font-size:16px}
+
+/* ── MODAL ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:20px;padding:28px 24px;max-width:440px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.2);animation:popIn .2s ease;max-height:80vh;overflow-y:auto}
+@keyframes popIn{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-title{font-family:'Playfair Display',serif;font-size:22px;color:var(--accent);margin-bottom:4px}
+.modal-sub{font-size:13px;color:var(--muted);margin-bottom:16px}
+.modal-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:15px}
+.modal-row:last-child{border:none}
+.modal-qty{font-weight:700;color:var(--accent)}
+.modal-actions{margin-top:18px;display:flex;gap:10px;justify-content:flex-end}
+
+/* ── TOAST ── */
+#toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;border-radius:12px;padding:10px 20px;font-size:14px;font-weight:600;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,.15);display:none;white-space:nowrap;max-width:90vw;text-align:center}
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<!-- ══ LOGIN SCREEN ══════════════════════════════════════════════════════ -->
+<div id="screen-login">
+  <div class="login-card">
+    <div class="login-logo">Mi<span>Despensa</span></div>
+    <p class="login-sub">Lista de compras compartida para toda la familia.<br>Funciona en cualquier dispositivo, sin cuenta.</p>
+
+    <div class="field">
+      <label class="label">Tu nombre</label>
+      <input id="inp-username" type="text" placeholder="Ej: Mamá, Juan, Papá…" autocomplete="off">
+    </div>
+
+    <div class="divider"><span>UNIRSE A UN HOGAR EXISTENTE</span></div>
+
+    <div class="row">
+      <div class="field" style="flex:1;margin:0">
+        <label class="label">Código del hogar</label>
+        <input id="inp-code" type="text" placeholder="CASA-1234" autocomplete="off"
+          style="text-transform:uppercase;font-family:monospace;letter-spacing:2px"
+          oninput="this.value=this.value.toUpperCase()">
+      </div>
+      <button class="btn btn-primary" onclick="joinHogar()">Entrar</button>
+    </div>
+
+    <div class="divider"><span>O CREAR NUEVO HOGAR</span></div>
+
+    <button class="btn btn-green" style="width:100%" onclick="createHogar()">🏠 Crear nuevo hogar</button>
+
+    <div id="new-code-display" class="code-display" style="display:none">
+      <div class="code" id="new-code-text"></div>
+      <div class="hint">Comparte este código con tu familia para que entren a la misma lista</div>
+    </div>
+
+    <p class="note">Los datos son visibles para cualquiera con el código del hogar. No guardes información sensible.</p>
+  </div>
+</div>
+
+<!-- ══ APP SCREEN ═════════════════════════════════════════════════════════ -->
+<div id="screen-app">
+  <header>
+    <div class="header-inner">
+      <div>
+        <div class="logo">Mi<span>Despensa</span></div>
+        <div class="hogar-info" id="hd-info">🏠 — · —</div>
+      </div>
+      <div class="header-right">
+        <div class="pill" id="sync-pill"><span class="sync-dot" id="sync-dot"></span><span id="sync-text">Conectando…</span></div>
+        <div class="pill">⚠️ <strong id="hd-needed">0</strong> por comprar</div>
+        <button class="btn-exit" onclick="exitApp()">Salir</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- ADD FORM -->
+    <div class="card">
+      <div class="card-title">➕ Agregar producto</div>
+      <div class="form-grid">
+        <div style="grid-column:1/-1">
+          <label class="label">Producto</label>
+          <input id="inp-name" type="text" placeholder="Ej: Leche, Arroz, Jabón…">
+        </div>
+        <div>
+          <label class="label">Categoría</label>
+          <select id="inp-cat">
+            <option value="lácteos">🥛 Lácteos</option>
+            <option value="granos">🌾 Granos</option>
+            <option value="carnes">🥩 Carnes</option>
+            <option value="frutas">🍎 Frutas</option>
+            <option value="verduras">🥦 Verduras</option>
+            <option value="limpieza">🧴 Limpieza</option>
+            <option value="higiene">🧼 Higiene</option>
+            <option value="bebidas">🥤 Bebidas</option>
+            <option value="otros">📦 Otros</option>
+          </select>
+        </div>
+        <div>
+          <label class="label">Unidad</label>
+          <select id="inp-unit">
+            <option>unidades</option><option>kg</option><option>g</option>
+            <option>L</option><option>ml</option><option>paquetes</option>
+            <option>cajas</option><option>bolsas</option><option>docenas</option>
+          </select>
+        </div>
+        <div>
+          <label class="label">Stock mensual</label>
+          <input id="inp-monthly" type="number" min="0" placeholder="Ej: 8">
+        </div>
+        <div>
+          <label class="label">Stock actual</label>
+          <input id="inp-current" type="number" min="0" placeholder="Ej: 2">
+        </div>
+        <button class="btn btn-primary" style="align-self:flex-end" onclick="addProduct()">Agregar</button>
+      </div>
+    </div>
+
+    <!-- BANNER -->
+    <div class="banner">
+      <div class="b-item"><div class="b-num" id="s-total">0</div><div class="b-lbl">Productos</div></div>
+      <div class="b-item"><div class="b-num" id="s-ok">0</div><div class="b-lbl">Con stock ✓</div></div>
+      <div class="b-item"><div class="b-num" id="s-warn">0</div><div class="b-lbl">Bajo stock</div></div>
+      <div class="b-item"><div class="b-num" id="s-crit">0</div><div class="b-lbl">Críticos</div></div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs-wrap">
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-cat="all" onclick="setFilter('all',this)">Todos</button>
+      </div>
+    </div>
+
+    <!-- LIST HEADER -->
+    <div class="list-head">
+      <span>Producto</span><span>Stock mensual</span><span>Stock actual</span>
+      <span>Unidad</span><span>A comprar</span><span></span>
+    </div>
+
+    <!-- PRODUCT LIST -->
+    <div id="product-list">
+      <div class="empty" id="empty-state">
+        <div class="emoji">🛒</div>
+        <p>Agrega productos para comenzar tu lista</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- BOTTOM BAR -->
+  <div class="bottom-bar">
+    <div class="bottom-info">Necesitas comprar <strong id="bb-count">0</strong> ítems</div>
+    <button class="btn btn-green" onclick="openModal()">Ver lista 🛒</button>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-title">🛒 Lista de compras</div>
+    <div class="modal-sub" id="modal-sub"></div>
+    <div id="modal-list"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">Cerrar</button>
+      <button class="btn btn-primary" onclick="printList()">🖨️ Imprimir</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Firebase init ─────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyCC3CxbPhK0BjubuOfCf81QqXYs8ysfWiI",
+  authDomain: "mi-despensa-2e4c9.firebaseapp.com",
+  databaseURL: "https://mi-despensa-2e4c9-default-rtdb.firebaseio.com",
+  projectId: "mi-despensa-2e4c9",
+  storageBucket: "mi-despensa-2e4c9.firebasestorage.app",
+  messagingSenderId: "60721137600",
+  appId: "1:60721137600:web:40f372ab95f252c0c36a25"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ── Constants ─────────────────────────────────────────────────────────────
+const CAT_COLORS = {
+  lácteos:"#A8DADC",granos:"#D4A373",carnes:"#F4978E",frutas:"#F7C59F",
+  verduras:"#90BE6D",limpieza:"#ADE8F4",higiene:"#C77DFF",bebidas:"#48CAE4",otros:"#B5BAD0"
+};
+const CAT_EMOJI = {
+  lácteos:"🥛",granos:"🌾",carnes:"🥩",frutas:"🍎",
+  verduras:"🥦",limpieza:"🧴",higiene:"🧼",bebidas:"🥤",otros:"📦"
+};
+const WORDS = ["CASA","HOGAR","NIDO","MESA","SOL","MAR","LUNA","VERDE","PATIO","FUEGO"];
+
+// ── State ─────────────────────────────────────────────────────────────────
+let hogarCode = localStorage.getItem("despensa_code") || "";
+let userName  = localStorage.getItem("despensa_user") || "";
+let products  = [];
+let activeFilter = "all";
+let dbRef = null;
+let isMine = false; // flag to avoid re-rendering on own writes
+
+// ── Toast ─────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, color = "#2D6A4F") {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.style.background = color;
+  t.style.display = "block";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.style.display = "none", 2800);
+}
+
+// ── Code gen ──────────────────────────────────────────────────────────────
+function genCode() {
+  return WORDS[Math.floor(Math.random()*WORDS.length)] + "-" + Math.floor(1000+Math.random()*9000);
+}
+
+// ── Login flow ────────────────────────────────────────────────────────────
+function getUser() { return document.getElementById("inp-username").value.trim(); }
+
+async function createHogar() {
+  const name = getUser();
+  if (!name) { showToast("Escribe tu nombre primero", "#C9534F"); return; }
+  const code = genCode();
+  document.getElementById("new-code-text").textContent = code;
+  document.getElementById("new-code-display").style.display = "block";
+  // Write empty hogar to Firebase
+  await db.ref("hogares/" + code).set({ products: {}, createdAt: Date.now() });
+  // Auto-enter after short delay
+  setTimeout(() => enterApp(code, name), 1200);
+}
+
+async function joinHogar() {
+  const name = getUser();
+  const code = document.getElementById("inp-code").value.trim().toUpperCase();
+  if (!name) { showToast("Escribe tu nombre primero", "#C9534F"); return; }
+  if (!code)  { showToast("Ingresa un código de hogar", "#C9534F"); return; }
+  // Check exists
+  const snap = await db.ref("hogares/" + code).once("value");
+  if (!snap.exists()) { showToast("Código no encontrado. Revísalo.", "#C9534F"); return; }
+  enterApp(code, name);
+}
+
+function enterApp(code, name) {
+  hogarCode = code;
+  userName  = name;
+  localStorage.setItem("despensa_code", code);
+  localStorage.setItem("despensa_user", name);
+  document.getElementById("screen-login").style.display = "none";
+  document.getElementById("screen-app").style.display = "flex";
+  document.getElementById("hd-info").textContent = `🏠 ${code} · ${name}`;
+  startListening();
+  showToast(`👋 Bienvenido, ${name}!`);
+}
+
+function exitApp() {
+  if (dbRef) dbRef.off();
+  localStorage.removeItem("despensa_code");
+  localStorage.removeItem("despensa_user");
+  hogarCode = ""; userName = ""; products = [];
+  document.getElementById("screen-login").style.display = "flex";
+  document.getElementById("screen-app").style.display = "none";
+  document.getElementById("new-code-display").style.display = "none";
+  document.getElementById("inp-username").value = "";
+  document.getElementById("inp-code").value = "";
+}
+
+// ── Auto-login ────────────────────────────────────────────────────────────
+window.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("inp-name")?.addEventListener("keydown", e => { if(e.key==="Enter") addProduct(); });
+  if (hogarCode && userName) enterApp(hogarCode, userName);
+});
+
+// ── Firebase listener ─────────────────────────────────────────────────────
+function startListening() {
+  setSyncStatus("syncing");
+  if (dbRef) dbRef.off();
+  dbRef = db.ref("hogares/" + hogarCode + "/products");
+  dbRef.on("value", snap => {
+    const data = snap.val();
+    products = data ? Object.values(data) : [];
+    render();
+    setSyncStatus("ok");
+  });
+}
+
+function setSyncStatus(state) {
+  const dot  = document.getElementById("sync-dot");
+  const text = document.getElementById("sync-text");
+  if (state === "syncing") {
+    dot.className = "sync-dot syncing";
+    text.textContent = "Sincronizando…";
+  } else {
+    dot.className = "sync-dot";
+    const now = new Date();
+    text.textContent = "Sync " + now.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+  }
+}
+
+// ── Write to Firebase ─────────────────────────────────────────────────────
+async function pushProducts(list) {
+  setSyncStatus("syncing");
+  const obj = {};
+  list.forEach(p => { obj[p.id] = p; });
+  await db.ref("hogares/" + hogarCode + "/products").set(obj);
+  await db.ref("hogares/" + hogarCode + "/meta").set({ updatedBy: userName, updatedAt: Date.now() });
+  setSyncStatus("ok");
+}
+
+// ── Add product ───────────────────────────────────────────────────────────
+async function addProduct() {
+  const name    = document.getElementById("inp-name").value.trim();
+  const cat     = document.getElementById("inp-cat").value;
+  const unit    = document.getElementById("inp-unit").value;
+  const monthly = parseFloat(document.getElementById("inp-monthly").value);
+  const current = parseFloat(document.getElementById("inp-current").value);
+  if (!name || isNaN(monthly) || isNaN(current)) {
+    showToast("Completa todos los campos", "#C9534F"); return;
+  }
+  const newP = { id: "p" + Date.now(), name, cat, unit, monthly, current };
+  const updated = [...products, newP];
+  document.getElementById("inp-name").value = "";
+  document.getElementById("inp-monthly").value = "";
+  document.getElementById("inp-current").value = "";
+  await pushProducts(updated);
+  showToast("✅ Producto agregado");
+}
+
+async function deleteProduct(id) {
+  await db.ref("hogares/" + hogarCode + "/products/" + id).remove();
+  showToast("🗑️ Eliminado");
+}
+
+async function updateField(id, field, val) {
+  const num = parseFloat(val);
+  if (isNaN(num) || num < 0) return;
+  await db.ref("hogares/" + hogarCode + "/products/" + id + "/" + field).set(num);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function needToBuy(p) { return Math.max(0, p.monthly - p.current); }
+function statusOf(p) {
+  const n = needToBuy(p);
+  if (n === 0) return "ok";
+  if (p.current === 0) return "critical";
+  return "need";
+}
+function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+let activeFilterVal = "all";
+
+function setFilter(cat, el) {
+  activeFilterVal = cat;
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  el.classList.add("active");
+  renderList();
+}
+
+// ── Render ────────────────────────────────────────────────────────────────
+function render() {
+  renderTabs();
+  renderList();
+  renderStats();
+}
+
+function renderTabs() {
+  const cats = [...new Set(products.map(p => p.cat))];
+  const tabs = document.getElementById("tabs");
+  const cur  = activeFilterVal;
+  tabs.innerHTML = `<button class="tab ${cur==="all"?"active":""}" onclick="setFilter('all',this)">Todos</button>`;
+  cats.forEach(c => {
+    tabs.innerHTML += `<button class="tab ${cur===c?"active":""}" onclick="setFilter('${c}',this)">${CAT_EMOJI[c]||""} ${cap(c)}</button>`;
+  });
+}
+
+function renderList() {
+  const list   = document.getElementById("product-list");
+  const empty  = document.getElementById("empty-state");
+  const filtered = activeFilterVal === "all" ? products : products.filter(p => p.cat === activeFilterVal);
+  const sorted   = [...filtered].sort((a,b) => {
+    const o = {critical:0, need:1, ok:2};
+    return o[statusOf(a)] - o[statusOf(b)];
+  });
+  list.querySelectorAll(".p-card").forEach(el => el.remove());
+  empty.style.display = products.length === 0 ? "" : "none";
+
+  sorted.forEach(p => {
+    const need = needToBuy(p);
+    const st   = statusOf(p);
+    const badgeClass = st==="ok" ? "ok" : st==="critical" ? "bad" : "warn";
+    const color = CAT_COLORS[p.cat] || "#ccc";
+    const card = document.createElement("div");
+    card.className = `p-card ${st}`;
+    card.innerHTML = `
+      <div class="cell-name">
+        <div class="cat-dot" style="background:${color}"></div>
+        <div>
+          <div class="pname">${esc(p.name)}</div>
+          <div class="punit-lbl">${CAT_EMOJI[p.cat]||""} ${cap(p.cat)}</div>
+        </div>
+      </div>
+      <div>
+        <div class="cell-lbl">Stock mensual</div>
+        <input class="inline-input" type="number" min="0" value="${p.monthly}"
+          onchange="updateField('${p.id}','monthly',this.value)">
+      </div>
+      <div>
+        <div class="cell-lbl">Stock actual</div>
+        <input class="inline-input" type="number" min="0" value="${p.current}"
+          onchange="updateField('${p.id}','current',this.value)">
+      </div>
+      <div>
+        <div class="cell-lbl">Unidad</div>
+        <span style="font-size:13px;color:var(--muted)">${p.unit}</span>
+      </div>
+      <div>
+        <div class="cell-lbl">A comprar</div>
+        <span class="badge ${badgeClass}">${need > 0 ? "+" + need : "✓"}</span>
+      </div>
+      <div class="cell-actions">
+        <button class="btn-del" onclick="deleteProduct('${p.id}')" title="Eliminar">🗑️</button>
+      </div>`;
+    list.appendChild(card);
+  });
+}
+
+function renderStats() {
+  const total  = products.length;
+  const ok     = products.filter(p => statusOf(p)==="ok").length;
+  const warn   = products.filter(p => statusOf(p)==="need").length;
+  const crit   = products.filter(p => statusOf(p)==="critical").length;
+  const needed = products.filter(p => needToBuy(p) > 0).length;
+  document.getElementById("s-total").textContent  = total;
+  document.getElementById("s-ok").textContent     = ok;
+  document.getElementById("s-warn").textContent   = warn;
+  document.getElementById("s-crit").textContent   = crit;
+  document.getElementById("hd-needed").textContent = needed;
+  document.getElementById("bb-count").textContent  = needed;
+}
+
+function openModal() {
+  const toBuy = products.filter(p => needToBuy(p) > 0)
+    .sort((a,b) => needToBuy(b) - needToBuy(a));
+  const sub  = document.getElementById("modal-sub");
+  const mlist = document.getElementById("modal-list");
+  mlist.innerHTML = "";
+  if (toBuy.length === 0) {
+    sub.textContent = "¡Todo el stock está completo! 🎉";
+  } else {
+    sub.textContent = `${toBuy.length} producto(s) — Hogar: ${hogarCode}`;
+    toBuy.forEach(p => {
+      const row = document.createElement("div");
+      row.className = "modal-row";
+      row.innerHTML = `<span>${CAT_EMOJI[p.cat]||""} ${esc(p.name)}</span><span class="modal-qty">+${needToBuy(p)} ${p.unit}</span>`;
+      mlist.appendChild(row);
+    });
+  }
+  document.getElementById("modal").classList.add("open");
+}
+function closeModal() { document.getElementById("modal").classList.remove("open"); }
+
+function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+</script>
+</body>
+</html>
+<script>
+function printList() {
+  const toBuy = products.filter(p => needToBuy(p) > 0)
+    .sort((a,b) => needToBuy(b) - needToBuy(a));
+  const rows = toBuy.length === 0
+    ? "<p style='color:#2D6A4F;font-weight:600;padding:16px 0'>¡Todo el stock está completo! 🎉</p>"
+    : toBuy.map(p =>
+        `<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #E0D9D0;font-size:15px">
+          <span>${(CAT_EMOJI[p.cat]||"")} ${p.name}</span>
+          <span style="font-weight:700;color:#2D6A4F">+${needToBuy(p)} ${p.unit}</span>
+        </div>`).join("");
+  const win = window.open("","_blank");
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>Lista de compras</title>
+    <style>
+      body{font-family:sans-serif;padding:32px;max-width:520px;margin:0 auto;color:#1A1A1A}
+      h1{font-size:22px;margin-bottom:4px;color:#2D6A4F}
+      .sub{font-size:13px;color:#7A7570;margin-bottom:20px}
+    </style>
+  </head><body>
+    <h1>🛒 Lista de compras</h1>
+    <div class="sub">Hogar: ${hogarCode} &nbsp;·&nbsp; ${new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"})}</div>
+    ${rows}
+    <script>window.onload=function(){window.print();window.close();}<\/script>
+  </body></html>`);
+  win.document.close();
+}
+</script>
