@@ -289,7 +289,12 @@ main{max-width:920px;margin:0 auto;padding:20px 14px 100px;flex:1}
   <!-- BOTTOM BAR -->
   <div class="bottom-bar">
     <div class="bottom-info">Necesitas comprar <strong id="bb-count">0</strong> ítems</div>
-    <button class="btn btn-green" onclick="openModal()">Ver lista 🛒</button>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+      <select id="list-filter-sel" style="border:1.5px solid #E0D9D0;border-radius:10px;padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:13px;background:#F7F3EE;color:#1A1A1A;outline:none;max-width:160px">
+        <option value="all">📋 Todo</option>
+      </select>
+      <button class="btn btn-green" onclick="openModal()">Ver lista 🛒</button>
+    </div>
   </div>
 </div>
 
@@ -297,7 +302,7 @@ main{max-width:920px;margin:0 auto;padding:20px 14px 100px;flex:1}
 <div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-      <div class="modal-title">🛒 Lista de compras</div>
+      <div class="modal-title" id="modal-title">🛒 Lista de compras</div>
       <button class="modal-reset" onclick="resetChecks()">Limpiar marcas</button>
     </div>
     <div class="modal-sub" id="modal-sub"></div>
@@ -516,6 +521,16 @@ function renderTabs() {
   cats.forEach(c => {
     tabs.innerHTML += `<button class="tab ${cur===c?"active":""}" onclick="setFilter('${c}',this)">${CAT_EMOJI[c]||""} ${cap(c)}</button>`;
   });
+  // Update bottom select options
+  const sel = document.getElementById("list-filter-sel");
+  if (sel) {
+    const prev = sel.value;
+    sel.innerHTML = `<option value="all">📋 Todo</option>`;
+    cats.forEach(c => {
+      sel.innerHTML += `<option value="${c}">${CAT_EMOJI[c]||""} ${cap(c)}</option>`;
+    });
+    if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+  }
 }
 
 function renderList() {
@@ -591,7 +606,11 @@ function renderStats() {
 let checked = {};
 
 function openModal() {
-  const toBuy = products.filter(p => needToBuy(p) > 0)
+  const selCat = document.getElementById("list-filter-sel")?.value || "all";
+  const catLabel = selCat === "all" ? "Todo" : (CAT_EMOJI[selCat]||"") + " " + cap(selCat);
+  document.getElementById("modal-title").textContent = "🛒 " + catLabel;
+  const toBuy = products
+    .filter(p => needToBuy(p) > 0 && (selCat === "all" || p.cat === selCat))
     .sort((a,b) => needToBuy(b) - needToBuy(a));
   const sub   = document.getElementById("modal-sub");
   const mlist = document.getElementById("modal-list");
