@@ -122,7 +122,7 @@ main{max-width:920px;margin:0 auto;padding:20px 14px 100px;flex:1}
 .modal-title{font-family:'Playfair Display',serif;font-size:22px;color:var(--accent);margin-bottom:4px}
 .modal-sub{font-size:13px;color:var(--muted);margin-bottom:16px}
 .modal-actions{margin-top:18px;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
-.check-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:opacity .2s;user-select:none}
+.check-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:opacity .3s, transform .3s;user-select:none}
 .check-row:last-child{border:none}
 .check-row.done{opacity:.4}
 .check-row.done .check-name{text-decoration:line-through}
@@ -488,7 +488,7 @@ function renderListScreen(){
   list.querySelectorAll(".p-card").forEach(el=>el.remove());
   empty.style.display=products.length===0?"":"none";
 
-  [...products].sort((a,b)=>{const o={critical:0,need:1,ok:2};return o[statusOf(a)]-o[statusOf(b)];})
+  [...products].sort((a,b)=>{ const sa=statusOf(a), sb=statusOf(b); if(sa==='ok'&&sb!=='ok') return 1; if(sb==='ok'&&sa!=='ok') return -1; return a.name.localeCompare(b.name,'es',{sensitivity:'base'}); })
   .forEach(p=>{
     const need=needToBuy(p); const st=statusOf(p);
     const bc=st==="ok"?"ok":st==="critical"?"bad":"warn";
@@ -574,7 +574,11 @@ function openModal(){
       el.innerHTML=`<span style="color:#1b4332;font-weight:600">💰 Total estimado</span><span style="font-family:'Playfair Display',serif;font-size:20px;color:#2D6A4F;font-weight:700">$${totalPrice.toLocaleString("es-CL")}</span>`;
       mlist.appendChild(el);
     }
-    toBuy.forEach(p=>{
+    // Pending first, checked at bottom
+    const alpha=(a,b)=>a.name.localeCompare(b.name,'es',{sensitivity:'base'});
+    const pending=toBuy.filter(p=>!checked[p.id]).sort(alpha);
+    const done_list=toBuy.filter(p=>!!checked[p.id]).sort(alpha);
+    [...pending,...done_list].forEach(p=>{
       const done=!!checked[p.id];
       const sub=needToBuy(p)*(p.price||0);
       const row=document.createElement("div");
@@ -595,11 +599,47 @@ async function toggleCheck(id,row){
   checked[id]=!checked[id];
   row.classList.toggle("done",checked[id]);
   row.querySelector(".check-box").textContent=checked[id]?"✓":"";
+
+  // Move row to bottom (if checked) or to top of done group (if unchecked)
+  const mlist=document.getElementById("modal-list");
+  const totalEl=mlist.querySelector("#modal-total");
+  if(checked[id]){
+    // Animate out then move to bottom
+    row.style.opacity="0";
+    row.style.transform="translateX(10px)";
+    setTimeout(()=>{
+      mlist.appendChild(row);
+      row.style.transition="none";
+      row.style.opacity="0";
+      row.style.transform="translateX(-10px)";
+      requestAnimationFrame(()=>{
+        row.style.transition="opacity .3s, transform .3s";
+        row.style.opacity="";
+        row.style.transform="";
+      });
+    }, 280);
+  } else {
+    // Move back before first done row
+    row.style.opacity="0";
+    setTimeout(()=>{
+      const firstDone=[...mlist.querySelectorAll(".check-row.done")].find(r=>r!==row);
+      if(firstDone) mlist.insertBefore(row, firstDone);
+      else if(totalEl) totalEl.after(row);
+      else mlist.prepend(row);
+      row.style.transition="none";
+      row.style.opacity="0";
+      requestAnimationFrame(()=>{
+        row.style.transition="opacity .3s, transform .3s";
+        row.style.opacity="";
+      });
+    }, 280);
+  }
+
   if(checked[id]){
     const p=products.find(x=>x.id===id);
     if(p) await db.ref("hogares/"+hogarCode+"/lists/"+activeListId+"/products/"+id+"/current").set(p.monthly);
   }
-  updateProgress(document.getElementById("modal-list").querySelectorAll(".check-row").length);
+  updateProgress(mlist.querySelectorAll(".check-row").length);
 }
 
 function updateProgress(total){
